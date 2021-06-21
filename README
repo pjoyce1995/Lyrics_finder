@@ -4,3 +4,5 @@ AT THE TIME OF WRITING, THE lyricsovh API IS UNAVAILABLE, THUS A MESSIER APPROAC
 
 The program runs in python 2.7, and the following modules are required:
 musicbrainzngs, sys, requests, bs4, re, numpy, matplotlib
+
+To run the program, install necessary pre-requisites, copy repository over to your working directory and run the main.py code in the command line.
