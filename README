@@ -1,6 +1,6 @@
 This is the repository for a python program that searches for all song lyrics by an inputted artist.
 
-AT THE TIME OF WRITING, THE 'lyricsovh' API IS UNAVAILABLE, THUS A MESSIER APPROACH HAD TO BE TAKEN (and using the lyricsgenius api felt like cheating)
+At time of writing, the 'lyricsovh' API is unavailable, thus a different approach was required (and using the lyricsgenius api felt like cheating)
 
 The program runs in python 2.7, and the following modules are required:
 musicbrainzngs, sys, requests, bs4, re, numpy, matplotlib
