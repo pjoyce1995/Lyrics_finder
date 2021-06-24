@@ -9,7 +9,8 @@ import re
 import numpy as np
 from matplotlib import pyplot as plt
 from funcs_lyrics import find_matching_artist_lyric, split_punctuation
-
+import threading, queue
+import requests
 #INITIALISE MUSICBRAINZ
 musicbrainzngs.set_useragent("pjoyce", "0.1", "peterjoyce247@gmail.com")
 artist_id=''
@@ -65,23 +66,18 @@ for alb in range(len(album_ids)):
         all_songs.append(songs[song]['title'])
 print('Found ', len(all_songs), 'songs by ', input_artist)
 print('Finding lyrics...')
+#################
+################
 
-#######################
-#find lyrics from each song
-########################
 
 artist_name=input_artist
 #initialise variables for output info
 all_len_songs=[]
-longest_song={'NA': None}
-shortest_song={'NA': None}
-narc_score=0
 no_lyrics_found=[]
 song_search=1
+url_list=[]
 for song in all_songs:
     #PRINT PROGRESS
-    sys.stdout.write('\rSearching for lyrics: %s / %s' % (str(song_search),len(all_songs)))
-    sys.stdout.flush()
 
     #FORMAT ARTIST AND SONG TITLE TO MAKE URL
     song_search+=1
@@ -105,10 +101,12 @@ for song in all_songs:
     str_artist_song=art_str+song_str
     #OPEN URL
     URL='https://genius.com/'+str_artist_song+'lyrics'
-    content = requests.get(URL)
-    #OBTAIN LYRICS
-    soup = BeautifulSoup(content.text, 'html.parser')
-    #CLEAN UP LYRICS
+    url_list.append(URL)
+
+#SET UP THREADING TO FETCH URLS IN PARALLEL
+def fetch_url(url,q):
+    urlHandler = requests.get(url)
+    soup = BeautifulSoup(urlHandler.text, 'html.parser')
     lyrics = soup.find("div", class_="Lyrics__Container-sc-1ynbvzw-7 jjqBBp")
     if lyrics is None:
         #alternative way of reading in lyrics for certain songs
@@ -121,13 +119,31 @@ for song in all_songs:
         lyrics = lyrics.replace('\n', ' ')
         lyrics_no_brackets = re.sub("[\(\[].*?[\)\]]", "", lyrics)
         words_list = lyrics_no_brackets.split(' ')
-        lyrics_alpha_num = re.sub('[\W_]', '', lyrics_no_brackets)
+        #lyrics_alpha_num = re.sub('[\W_]', '', words_list)
         words_list = [re.sub('[\W_]', '', i) for i in words_list if len(re.sub('[\W_]', '', i)) > 0]
-    #FIND INFO ABOUT LYRICS
-    if words_list!=['Sorry', 'we', 'didnt', 'mean', 'for', 'that', 'to', 'happen']:
-        length_song=len(words_list)
+    q.put(words_list)
+q = queue.Queue()
+
+#COLLECT TOGETHER EACH THREAD
+threads = [threading.Thread(target=fetch_url, args=(url,q)) for url in url_list]
+results=[]
+for thread in threads:
+    thread.start()
+    results.append(q.get())
+for thread in threads:
+    thread.join()
+
+#ITERATE THROUGH EACH OF THE SONG LYRICS
+longest_song={'NA': None}
+shortest_song={'NA': None}
+narc_score=0
+for res in range(len(results)):
+    song=all_songs[res]
+    # FIND INFO ABOUT LYRICS
+    if results[res]!=['Sorry', 'we', 'didnt', 'mean', 'for', 'that', 'to', 'happen']:
+        length_song=len(results[res])
         all_len_songs.append(length_song)
-        narc_score+=find_matching_artist_lyric(words_list, artist_name)
+        narc_score+=find_matching_artist_lyric(results[res], artist_name)
         if 'NA' in longest_song.keys():
             longest_song  = {song: length_song}
             shortest_song = {song: length_song}
@@ -143,8 +159,11 @@ if len(all_songs)==0:
     print('No lyrics found for the artist!')
     sys.exit()
 #PRINT OUT INFO AND PLOT HISTOGRAM
-print('\n Found lyrics for ', len(all_songs)-len(no_lyrics_found), '.\n Could not find lyrics for the following songs:')
-print(no_lyrics_found)
+print('\n Found lyrics for ', len(all_songs)-len(no_lyrics_found))
+
+if len(no_lyrics_found)>0:
+    print('Could not find lyrics for the following songs:')
+    print(no_lyrics_found)
 print('\nMean number of lyrics over all songs: ', np.mean(all_len_songs))
 print('\nStandard deviation of number of lyrics over all songs: ', np.std(all_len_songs))
 print('Shortest song: ',shortest_song)
